@@ -6,7 +6,7 @@ import pytest
 from rest_framework import (
     exceptions, filters, generics, pagination, serializers, status
 )
-from rest_framework.pagination import PAGE_BREAK, PageLink
+from rest_framework.pagination import PAGE_BREAK, PageLink, _get_count
 from rest_framework.request import Request
 from rest_framework.test import APIRequestFactory
 
@@ -671,3 +671,29 @@ def test_get_displayed_page_numbers():
     assert displayed_page_numbers(7, 9) == [1, None, 6, 7, 8, 9]
     assert displayed_page_numbers(8, 9) == [1, None, 7, 8, 9]
     assert displayed_page_numbers(9, 9) == [1, None, 7, 8, 9]
+
+
+def test_get_count_hiding():
+    class Qs:
+        def count(self):
+            self.ok = True
+            return 42
+
+    class CountFail:
+        def count(self):
+            # ... countless stack frames later:
+            raise AttributeError("Oh no!")
+
+    class LennyFail:
+        def __len__(self):
+            raise AttributeError("Oh no!")
+
+    q = Qs()
+
+    assert _get_count(q) == 42 and q.ok
+
+    with pytest.raises(AttributeError):
+        _get_count(CountFail())
+
+    with pytest.raises(AttributeError):
+        _get_count(LennyFail())

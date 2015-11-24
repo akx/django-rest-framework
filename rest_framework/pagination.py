@@ -21,6 +21,8 @@ from rest_framework.response import Response
 from rest_framework.settings import api_settings
 from rest_framework.utils.urls import remove_query_param, replace_query_param
 
+_sequence_types = (tuple, list, six.moves.range, six.binary_type, six.text_type)
+
 
 def _positive_int(integer_string, strict=False, cutoff=None):
     """
@@ -47,10 +49,14 @@ def _get_count(queryset):
     """
     Determine an object count, supporting either querysets or regular lists.
     """
-    try:
+    # The type-checking gymnastics ensure that `_get_count` will most likely
+    # not hide AttributeError and TypeError exceptions from whatever logic
+    # lurks within the given object's `.count()`.  However, it's assumed known
+    # that the sequence types (tuple, list, range, one or two string flavors)
+    # have a `.count()` method that we _can't_ use, as it expects a single argument.
+    if hasattr(queryset, "count") and not isinstance(queryset, _sequence_types):
         return queryset.count()
-    except (AttributeError, TypeError):
-        return len(queryset)
+    return len(queryset)
 
 
 def _get_displayed_page_numbers(current, final):
